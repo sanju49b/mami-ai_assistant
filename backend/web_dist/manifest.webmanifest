@@ -1,0 +1,9 @@
+{
+  "name": "Day Manager",
+  "short_name": "Day",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#EEF2F5",
+  "theme_color": "#1E2A36",
+  "icons": [{ "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }]
+}

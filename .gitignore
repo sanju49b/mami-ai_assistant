@@ -6,3 +6,7 @@ __pycache__/
 node_modules/
 build/
 *.egg-info/
+web/.next/
+web/out/
+web/next-env.d.ts
+web/tsconfig.tsbuildinfo

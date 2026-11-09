@@ -109,7 +109,8 @@ def test_text_message_is_saved_and_acknowledged(client, telegram):
         assert msg.kind == "text"
 
     assert run_due_jobs()["done"] == 1
-    assert telegram.sent == [(MY_TELEGRAM_ID, "Saved.")]
+    # The scripted model replies "OK." (no tools called, so no receipt lines).
+    assert telegram.sent == [(MY_TELEGRAM_ID, "OK.")]
 
 
 def test_duplicate_webhook_delivery_is_processed_once(client, telegram):

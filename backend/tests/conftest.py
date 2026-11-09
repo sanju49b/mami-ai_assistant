@@ -11,6 +11,10 @@ os.environ.setdefault(
 os.environ["TELEGRAM_WEBHOOK_SECRET"] = "test-secret"
 os.environ["TELEGRAM_BOT_TOKEN"] = "test-token"
 os.environ["RUN_WORKER"] = "false"
+os.environ["APP_ENCRYPTION_KEY"] = "q3tK8m5zJb3H0x1yC7f2p9wV4sN6eR8tY1uI3oP5aS0="
+os.environ["WHOOP_CLIENT_ID"] = "whoop-client"
+os.environ["WHOOP_CLIENT_SECRET"] = "whoop-secret"
+os.environ["PUBLIC_BASE_URL"] = "https://dm.example.com"
 
 import pytest  # noqa: E402
 from alembic import command  # noqa: E402
@@ -21,6 +25,7 @@ from sqlalchemy import text  # noqa: E402
 from app.db import get_engine, session_scope  # noqa: E402
 from app.main import create_app  # noqa: E402
 from app.models import Base  # noqa: E402
+from app.llm import ScriptedLLM, set_llm  # noqa: E402
 from app.telegram.client import FakeTelegramClient, set_telegram_client  # noqa: E402
 
 BACKEND_DIR = os.path.dirname(os.path.dirname(__file__))
@@ -47,6 +52,15 @@ def clean_tables():
         conn.execute(text(f"TRUNCATE {tables} CASCADE"))
 
 
+@pytest.fixture(autouse=True)
+def llm():
+    """Every test gets a scripted model: no network, no cost, predictable."""
+    fake = ScriptedLLM()
+    set_llm(fake)
+    yield fake
+    set_llm(None)
+
+
 @pytest.fixture
 def telegram():
     fake = FakeTelegramClient()
@@ -57,7 +71,7 @@ def telegram():
 
 @pytest.fixture
 def client(telegram):
-    with TestClient(create_app()) as c:
+    with TestClient(create_app(), base_url="https://testserver") as c:
         yield c
 
 

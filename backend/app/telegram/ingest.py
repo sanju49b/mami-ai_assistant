@@ -23,6 +23,17 @@ class InvalidUpdate(ValueError):
     pass
 
 
+HELP_TEXT = (
+    "Just talk to me like a person:\n"
+    "• \"45 min DSA, £12 lunch, skipped gym, buy groceries tomorrow\"\n"
+    "• \"plan my day\" / \"what am I missing this week?\"\n"
+    "• \"actually only 30 minutes\" / \"undo\"\n"
+    "• \"remember I focus best before 9\"\n"
+    "Commands: /whoop to connect WHOOP, /help for this message.\n"
+    "Voice notes: use your keyboard's dictation button instead."
+)
+
+
 def _sender_id(update: dict[str, Any]) -> int | None:
     for key in ("message", "edited_message", "callback_query"):
         part = update.get(key)
@@ -85,9 +96,33 @@ def handle_update(session: Session, update: dict[str, Any]) -> str:
         inbound.processed_at = utc_now()
         return status
 
+    callback = update.get("callback_query")
+    if isinstance(callback, dict) and sender is not None:
+        link = session.execute(
+            select(TelegramLink).where(TelegramLink.telegram_user_id == sender)
+        ).scalar_one_or_none()
+        if link is None:
+            return finish("ignored_unlinked")
+        data = callback.get("data") or ""
+        parts = data.split(":")
+        if len(parts) == 3 and parts[0] == "ap" and parts[2] in ("a", "r"):
+            try:
+                uuid.UUID(parts[1])
+            except ValueError:
+                return finish("bad_callback")
+            jobs.enqueue(
+                session,
+                "decide_approval",
+                dedupe_key=f"callback:{callback['id']}",
+                user_id=link.user_id,
+                payload={"approval_id": parts[1], "decision": parts[2],
+                         "callback_query_id": callback["id"], "chat_id": link.chat_id},
+            )
+            return finish("approval_decision")
+        return finish("bad_callback")
+
     message = update.get("message")
     if not isinstance(message, dict) or sender is None:
-        # Callback buttons and edits are handled in later batches.
         return finish("unsupported")
 
     chat_id = message["chat"]["id"]
@@ -119,6 +154,16 @@ def handle_update(session: Session, update: dict[str, Any]) -> str:
     if link is None:
         # Strangers get no reply and nothing is processed.
         return finish("ignored_unlinked")
+
+    command = text.strip().split()[0].lower() if text.strip().startswith("/") else None
+    if command in ("/whoop", "/start", "/help"):
+        if command == "/whoop":
+            jobs.enqueue(session, "whoop_link", dedupe_key=f"whoop_link:{update_id}",
+                         user_id=link.user_id, payload={"chat_id": chat_id})
+        else:
+            jobs.enqueue(session, "send_text", dedupe_key=f"help:{update_id}", user_id=link.user_id,
+                         payload={"chat_id": chat_id, "text": HELP_TEXT})
+        return finish("command")
 
     settings = session.get(UserSettings, link.user_id)
     tz = settings.timezone if settings else "Europe/London"

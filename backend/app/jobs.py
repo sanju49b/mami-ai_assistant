@@ -25,6 +25,16 @@ from app.timeutil import utc_now
 log = logging.getLogger(__name__)
 
 Handler = Callable[[Session, Job], None]
+
+
+class Deferred(Exception):
+    """Raised by a handler to say 'not now, try again at `until`' (e.g. quiet
+    hours). Not counted as a failed attempt."""
+
+    def __init__(self, until: datetime, reason: str = "") -> None:
+        super().__init__(reason)
+        self.until = until
+        self.reason = reason
 HANDLERS: dict[str, Handler] = {}
 
 LOCK_SECONDS = 300
@@ -106,6 +116,16 @@ def _run(job_id: uuid.UUID) -> str:
             job.last_error = None
             job.updated_at = utc_now()
         return "done"
+    except Deferred as d:
+        with session_scope() as session:
+            session.execute(
+                update(Job)
+                .where(Job.id == job_id)
+                .values(status="pending", run_at=d.until, locked_until=None,
+                        attempts=Job.attempts - 1, last_error=f"deferred: {d.reason}",
+                        updated_at=utc_now())
+            )
+        return "deferred"
     except Exception as exc:  # noqa: BLE001 - every failure must be recorded
         log.warning("job %s failed: %s", job_id, exc)
         error = "".join(traceback.format_exception_only(exc)).strip()[:2000]
@@ -128,7 +148,7 @@ def _run(job_id: uuid.UUID) -> str:
 
 def run_due_jobs(limit: int = 50) -> dict[str, int]:
     """Run up to `limit` due jobs. Returns counts by outcome."""
-    counts = {"done": 0, "retry": 0, "failed": 0}
+    counts = {"done": 0, "retry": 0, "failed": 0, "deferred": 0}
     for _ in range(limit):
         job_id = _claim_one()
         if job_id is None:

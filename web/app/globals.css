@@ -1,0 +1,66 @@
+@import "tailwindcss";
+
+@theme {
+  --font-display: "Bricolage Grotesque Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-body: "Atkinson Hyperlegible", ui-sans-serif, system-ui, sans-serif;
+
+  --color-mist: #eef2f5;
+  --color-card: #ffffff;
+  --color-ink: #1e2a36;
+  --color-soft: #5b6877;
+  --color-line: #d9e0e7;
+  --color-focus: #3d5afe;
+
+  /* Category colours: soft enough to sit together, distinct enough to scan. */
+  --color-study: #5b6cff;
+  --color-exercise: #2a9d74;
+  --color-work: #55697d;
+  --color-commute: #d99a2b;
+  --color-rest: #9a86de;
+  --color-meal: #ee9a5e;
+  --color-social: #d46a9a;
+  --color-project: #2e8fb8;
+  --color-other: #8796a5;
+}
+
+/* Numbers use the display face: the body face's slashed zero is noisy in times. */
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+html {
+  background: var(--color-mist);
+  color: var(--color-ink);
+  font-family: var(--font-body);
+  -webkit-tap-highlight-color: transparent;
+}
+
+:focus-visible {
+  outline: 3px solid var(--color-focus);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+/* The sky band: one gradient for the whole day, from night to dawn to day to dusk to night. */
+.sky {
+  background: linear-gradient(
+    to bottom,
+    #1e2a47 0%,
+    #3b3f74 18%,
+    #f6b9a9 27%,
+    #f7d7a6 32%,
+    #8ec3ea 42%,
+    #7fb6e6 66%,
+    #f0a989 76%,
+    #8b7bd8 84%,
+    #2d3463 92%,
+    #1e2a47 100%
+  );
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation: none !important;
+    transition: none !important;
+  }
+}

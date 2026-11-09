@@ -17,10 +17,15 @@ class TelegramError(RuntimeError):
     pass
 
 
+Buttons = list[list[tuple[str, str]]]  # rows of (label, callback_data)
+
+
 class TelegramClient(Protocol):
-    def send_message(self, chat_id: int, text: str) -> int:
-        """Send a text message; return Telegram's message_id."""
+    def send_message(self, chat_id: int, text: str, buttons: Buttons | None = None) -> int:
+        """Send a text message (optionally with inline buttons); return its message_id."""
         ...
+
+    def answer_callback(self, callback_query_id: str, text: str = "") -> None: ...
 
 
 class HttpTelegramClient:
@@ -38,9 +43,19 @@ class HttpTelegramClient:
             raise TelegramError(f"{method} failed: {data.get('description', response.status_code)}")
         return data["result"]
 
-    def send_message(self, chat_id: int, text: str) -> int:
-        result = self._call("sendMessage", {"chat_id": chat_id, "text": text})
+    def send_message(self, chat_id: int, text: str, buttons: Buttons | None = None) -> int:
+        payload: dict = {"chat_id": chat_id, "text": text[:4096]}
+        if buttons:
+            payload["reply_markup"] = {
+                "inline_keyboard": [
+                    [{"text": label, "callback_data": data} for label, data in row] for row in buttons
+                ]
+            }
+        result = self._call("sendMessage", payload)
         return int(result["message_id"])
+
+    def answer_callback(self, callback_query_id: str, text: str = "") -> None:
+        self._call("answerCallbackQuery", {"callback_query_id": callback_query_id, "text": text})
 
     def set_webhook(self, url: str, secret_token: str) -> None:
         self._call(
@@ -58,13 +73,19 @@ class FakeTelegramClient:
     """Records messages instead of sending them. Used in tests."""
 
     sent: list[tuple[int, str]] = field(default_factory=list)
+    buttons: list[Buttons | None] = field(default_factory=list)
+    callbacks: list[str] = field(default_factory=list)
     fail: bool = False
 
-    def send_message(self, chat_id: int, text: str) -> int:
+    def send_message(self, chat_id: int, text: str, buttons: Buttons | None = None) -> int:
         if self.fail:
             raise TelegramError("simulated failure")
         self.sent.append((chat_id, text))
+        self.buttons.append(buttons)
         return len(self.sent)
+
+    def answer_callback(self, callback_query_id: str, text: str = "") -> None:
+        self.callbacks.append(callback_query_id)
 
 
 _client: TelegramClient | None = None

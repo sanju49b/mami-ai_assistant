@@ -11,6 +11,8 @@ dependencies = [
     "alembic>=1.13",
     "pydantic-settings>=2.4",
     "httpx>=0.27",
+    "anthropic>=0.70",
+    "cryptography>=43",
 ]
 
 [build-system]

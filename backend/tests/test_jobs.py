@@ -31,8 +31,8 @@ def test_successful_job_runs_once():
     HANDLERS["count_me"] = lambda session, job: calls.append(job.id)
     with session_scope() as s:
         enqueue(s, "count_me", "k1")
-    assert run_due_jobs() == {"done": 1, "retry": 0, "failed": 0}
-    assert run_due_jobs() == {"done": 0, "retry": 0, "failed": 0}
+    assert run_due_jobs()["done"] == 1
+    assert run_due_jobs()["done"] == 0
     assert len(calls) == 1
 
 
