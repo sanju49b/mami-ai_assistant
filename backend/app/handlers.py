@@ -30,7 +30,12 @@ def process_message(session: Session, job: Job) -> None:
     if message is None:
         return
     if message.kind == "voice":
-        reply = "Voice note saved. Transcription is switched on in a later build step."
+        # The Claude API reads text and images, not audio, and Claude is the only
+        # AI service we use. The voice note is still stored; we ask for text.
+        reply = (
+            "I can't listen to voice notes. Tap the microphone on your keyboard "
+            "to dictate instead, then send it as text."
+        )
     elif message.kind == "text":
         reply = "Saved."
     else:

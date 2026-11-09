@@ -17,7 +17,6 @@ class Settings(BaseSettings):
     telegram_webhook_secret: str = ""
 
     anthropic_api_key: str = ""
-    openai_api_key: str = ""
 
     run_worker: bool = False
     worker_poll_seconds: float = 30.0

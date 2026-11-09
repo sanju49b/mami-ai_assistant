@@ -147,7 +147,7 @@ def test_voice_note_is_saved_with_file_reference(client, telegram):
         assert msg.kind == "voice"
         assert msg.meta["file_id"] == "VOICE123"
     run_due_jobs()
-    assert "Voice note saved" in telegram.sent[0][1]
+    assert "dictate" in telegram.sent[0][1]
 
 
 def test_late_night_message_counts_towards_previous_day(client):

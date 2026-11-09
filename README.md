@@ -13,6 +13,10 @@ the single source of truth. Architecture and plan: see the
 | 2 | Job queue and worker (retries, backoff, SKIP LOCKED, idempotent sends) | Core done; quiet hours and notification caps still to do |
 | 3 | AI agent with read tools | Next |
 
+AI: Claude is the only AI service (one key: `ANTHROPIC_API_KEY`). Claude reads
+text and images, not audio, so voice notes are stored and the bot asks you to use
+your phone's keyboard dictation instead.
+
 What works today: you message the bot, every message is stored before anything
 else happens, duplicates are ignored, strangers are ignored, and the bot replies
 "Saved." (the AI brain arrives in batch 3).
