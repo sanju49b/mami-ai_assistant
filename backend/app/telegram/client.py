@@ -60,6 +60,21 @@ class HttpTelegramClient:
     def get_me(self) -> dict:
         return self._call("getMe", {})
 
+    def delete_webhook(self) -> None:
+        """Polling (getUpdates) only works when no webhook is set."""
+        self._call("deleteWebhook", {"drop_pending_updates": False})
+
+    def get_updates(self, offset: int | None, timeout: int = 25) -> list[dict]:
+        """Long polling: waits up to `timeout` seconds for new messages."""
+        payload: dict = {"timeout": timeout, "allowed_updates": ["message", "callback_query"]}
+        if offset is not None:
+            payload["offset"] = offset
+        response = httpx.post(f"{self._base}/getUpdates", json=payload, timeout=timeout + 15)
+        data = response.json()
+        if not data.get("ok"):
+            raise TelegramError(f"getUpdates failed: {data.get('description', response.status_code)}")
+        return data["result"]
+
     def set_webhook(self, url: str, secret_token: str) -> None:
         self._call(
             "setWebhook",

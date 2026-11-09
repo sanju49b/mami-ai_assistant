@@ -61,6 +61,16 @@ def ensure_jobs(session: Session, now: datetime) -> int:
                     continue
                 if jobs.enqueue(session, kind, key, payload={"date": d}, user_id=uid, run_at=run_at):
                     created += 1
+        # Catch-up: if the laptop was off, close the days it missed (up to a week
+        # back, never before Telegram was linked), so every day is still saved.
+        linked_day = today_for(s, link.linked_at)
+        for back in range(1, 8):
+            day = today - timedelta(days=back)
+            if day < linked_day:
+                break
+            if jobs.enqueue(session, "day_close", f"day_close:{day.isoformat()}",
+                            payload={"date": day.isoformat()}, user_id=uid, run_at=now):
+                created += 1
         for task in session.execute(
             select(Task).where(
                 Task.user_id == uid, Task.status == "open", Task.due_at.is_not(None),

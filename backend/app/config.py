@@ -4,14 +4,32 @@ Why: secrets and per-environment values (database URL, bot token) must never
 live in code. pydantic-settings reads them once and validates their types.
 """
 from functools import lru_cache
+from pathlib import Path
 
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+# backend/.env, wherever you start Mami from.
+ENV_FILE = Path(__file__).resolve().parent.parent / ".env"
+DEFAULT_DATABASE_URL = "postgresql+psycopg://dm:dm@localhost:5432/daymanager"
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+    model_config = SettingsConfigDict(env_file=ENV_FILE, extra="ignore")
 
-    database_url: str = "postgresql+psycopg://dm:dm@localhost:5432/daymanager"
+    owner_name: str = "Sri"
+
+    database_url: str = DEFAULT_DATABASE_URL
+
+    @field_validator("database_url")
+    @classmethod
+    def _psycopg_driver(cls, value: str) -> str:
+        """Accept the plain string Supabase shows (postgresql://...) as is."""
+        value = value.strip()
+        for prefix in ("postgresql://", "postgres://"):
+            if value.startswith(prefix):
+                return "postgresql+psycopg://" + value[len(prefix):]
+        return value
 
     # Public HTTPS address of this backend, e.g. https://mami.onrender.com.
     # If unset, Render's RENDER_EXTERNAL_URL is used (see base_url below).
