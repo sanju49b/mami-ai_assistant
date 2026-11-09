@@ -1,0 +1,25 @@
+# Render blueprint. Secrets are set in the Render dashboard, never here.
+services:
+  - type: web
+    name: day-manager-api
+    runtime: python
+    plan: starter            # always-on; the free plan sleeps and would stop reminders
+    region: frankfurt
+    rootDir: backend
+    buildCommand: pip install .
+    # Migrations run before every start, so the schema is always current.
+    startCommand: alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    envVars:
+      - key: RUN_WORKER
+        value: "true"
+      - key: DATABASE_URL
+        sync: false
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: TELEGRAM_WEBHOOK_SECRET
+        sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
