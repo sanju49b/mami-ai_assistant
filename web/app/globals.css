@@ -1,31 +1,28 @@
 @import "tailwindcss";
 
 @theme {
-  --font-display: "Bricolage Grotesque Variable", ui-sans-serif, system-ui, sans-serif;
-  --font-body: "Atkinson Hyperlegible", ui-sans-serif, system-ui, sans-serif;
+  /* Warm serif for headings and numbers, clean sans for everything else. */
+  --font-display: "Source Serif 4 Variable", ui-serif, Georgia, serif;
+  --font-body: "Instrument Sans Variable", ui-sans-serif, system-ui, sans-serif;
 
-  --color-mist: #eef2f5;
-  --color-card: #ffffff;
-  --color-ink: #1e2a36;
-  --color-soft: #5b6877;
-  --color-line: #d9e0e7;
-  --color-focus: #3d5afe;
+  --color-mist: #f6f3ee;
+  --color-card: #fffdfa;
+  --color-ink: #2b2622;
+  --color-soft: #75695f;
+  --color-line: #e7dfd5;
+  --color-focus: #c4623f;
+  --color-accent: #c4623f;
 
-  /* Category colours: soft enough to sit together, distinct enough to scan. */
-  --color-study: #5b6cff;
-  --color-exercise: #2a9d74;
-  --color-work: #55697d;
-  --color-commute: #d99a2b;
-  --color-rest: #9a86de;
-  --color-meal: #ee9a5e;
-  --color-social: #d46a9a;
-  --color-project: #2e8fb8;
-  --color-other: #8796a5;
-}
-
-/* Numbers use the display face: the body face's slashed zero is noisy in times. */
-.tabular-nums {
-  font-variant-numeric: tabular-nums;
+  /* Category colours: warm and muted so they sit calmly together. */
+  --color-study: #5c6bc0;
+  --color-exercise: #3f8f6b;
+  --color-work: #8a7f74;
+  --color-commute: #c9973c;
+  --color-rest: #8e7cc3;
+  --color-meal: #d9825b;
+  --color-social: #c0668e;
+  --color-project: #3d88a8;
+  --color-other: #9a8f84;
 }
 
 html {
@@ -35,26 +32,40 @@ html {
   -webkit-tap-highlight-color: transparent;
 }
 
-:focus-visible {
-  outline: 3px solid var(--color-focus);
-  outline-offset: 2px;
-  border-radius: 6px;
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
 }
 
-/* The sky band: one gradient for the whole day, from night to dawn to day to dusk to night. */
+:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+  border-radius: 8px;
+}
+
+/* The sky band: one gradient for the whole day, night to dawn to day to dusk to night. */
 .sky {
   background: linear-gradient(
     to bottom,
-    #1e2a47 0%,
-    #3b3f74 18%,
-    #f6b9a9 27%,
-    #f7d7a6 32%,
-    #8ec3ea 42%,
-    #7fb6e6 66%,
-    #f0a989 76%,
-    #8b7bd8 84%,
-    #2d3463 92%,
-    #1e2a47 100%
+    #2a2f4f 0%,
+    #4a4878 18%,
+    #f2b8a2 27%,
+    #f5d7a8 32%,
+    #a9cde6 42%,
+    #9cc4e2 66%,
+    #eba585 76%,
+    #9c86c9 84%,
+    #3b3a63 92%,
+    #2a2f4f 100%
+  );
+}
+
+/* Fixed commitments (office, commute) are drawn as quiet hatched bands so the
+   blocks you choose to plan stand out. */
+.fixed-block {
+  background-image: repeating-linear-gradient(
+    -45deg,
+    transparent 0 7px,
+    rgba(43, 38, 34, 0.045) 7px 8px
   );
 }
 

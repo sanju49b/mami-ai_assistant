@@ -4,7 +4,8 @@ import { useEffect, useState } from "react";
 import type { Block } from "@/lib/api";
 import { catColor, STATUS_LABEL } from "./ui";
 
-const PX_PER_MIN = 1.15;
+const PX_PER_MIN = 1.05;
+const FIXED = new Set(["work", "commute"]);
 const DAY_END_HOUR = 4;
 
 function toMinutes(hhmm: string): number {
@@ -74,7 +75,7 @@ export function Timeline({
           <li
             key={`l${m}`}
             aria-hidden
-            className="pointer-events-none absolute inset-x-0 border-t border-line/70"
+            className="pointer-events-none absolute inset-x-0 border-t border-dashed border-line"
             style={{ top: (m - first) * PX_PER_MIN }}
           />
         ))}
@@ -85,6 +86,7 @@ export function Timeline({
           const done = b.status === "completed";
           const off = b.status === "missed" || b.status === "cancelled";
           const unknown = b.status === "unknown";
+          const fixed = FIXED.has(b.category) && !done;
           const ticked = b.checklist.filter((c) => c.done).length;
           return (
             <li key={b.id} className="absolute inset-x-0" style={{ top, height: h }}>
@@ -93,15 +95,17 @@ export function Timeline({
                 aria-pressed={selectedId === b.id}
                 className={`flex h-full w-full overflow-hidden rounded-2xl text-left transition-shadow ${
                   selectedId === b.id ? "shadow-[0_0_0_2px_var(--color-ink)]" : ""
-                } ${unknown ? "border border-dashed border-soft/50" : ""}`}
+                } ${unknown ? "border border-dashed border-soft/50" : ""} ${fixed ? "fixed-block" : ""}`}
                 style={{
-                  background: done ? color : `color-mix(in oklab, ${color} ${off ? 6 : b.category === "work" ? 9 : 16}%, white)`,
+                  background: done
+                    ? color
+                    : `color-mix(in oklab, ${color} ${off ? 5 : fixed ? 8 : 15}%, var(--color-card))`,
                   color: done ? "white" : "var(--color-ink)",
                 }}
               >
                 <span className="w-1.5 shrink-0" style={{ background: color, opacity: off ? 0.35 : 1 }} />
                 <span className="flex min-w-0 flex-1 flex-col justify-center px-3 py-1">
-                  <span className={`truncate font-bold ${off ? "line-through opacity-60" : ""}`}>
+                  <span className={`truncate ${fixed ? "font-medium" : "font-semibold"} ${off ? "line-through opacity-60" : ""}`}>
                     {b.important && <span className="sr-only">Important: </span>}
                     {b.title}
                   </span>

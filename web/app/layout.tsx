@@ -1,19 +1,18 @@
 import type { Metadata, Viewport } from "next";
-import "@fontsource-variable/bricolage-grotesque";
-import "@fontsource/atkinson-hyperlegible/400.css";
-import "@fontsource/atkinson-hyperlegible/700.css";
+import "@fontsource-variable/source-serif-4";
+import "@fontsource-variable/instrument-sans";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Day Manager",
-  description: "Your day, your plan, your progress.",
+  title: "Mami",
+  description: "Mami, your day manager.",
   manifest: "/manifest.webmanifest",
   icons: { icon: "/icon.svg", apple: "/icon.svg" },
-  appleWebApp: { capable: true, title: "Day", statusBarStyle: "default" },
+  appleWebApp: { capable: true, title: "Mami", statusBarStyle: "default" },
 };
 
 export const viewport: Viewport = {
-  themeColor: "#1E2A36",
+  themeColor: "#F6F3EE",
   width: "device-width",
   initialScale: 1,
 };

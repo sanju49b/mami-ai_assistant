@@ -2,7 +2,9 @@
 import itertools
 from datetime import datetime, timezone
 
-SECRET_HEADERS = {"X-Telegram-Bot-Api-Secret-Token": "test-secret"}
+from app.config import webhook_token
+
+SECRET_HEADERS = {"X-Telegram-Bot-Api-Secret-Token": webhook_token("test-secret")}
 _ids = itertools.count(1000)
 
 MY_TELEGRAM_ID = 111

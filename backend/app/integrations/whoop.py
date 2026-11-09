@@ -53,7 +53,7 @@ def _http() -> httpx.Client:
 
 
 def redirect_uri() -> str:
-    return get_settings().public_base_url.rstrip("/") + "/whoop/callback"
+    return get_settings().base_url + "/whoop/callback"
 
 
 def is_configured() -> bool:

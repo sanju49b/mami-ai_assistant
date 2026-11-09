@@ -39,12 +39,11 @@ export function Login({ onDone }: { onDone: () => void }) {
 
   return (
     <main className="mx-auto flex min-h-dvh max-w-sm flex-col justify-center px-6">
-      <div className="sky mb-8 h-24 w-3 rounded-full" aria-hidden />
-      <h1 className="font-display text-4xl font-semibold leading-tight tracking-tight">
-        Your day, laid out.
-      </h1>
-      <p className="mt-3 text-soft">
-        Log in with a code sent to your Telegram. No password needed.
+      <div className="sky mb-8 h-24 w-2.5 rounded-full" aria-hidden />
+      <h1 className="font-display text-5xl font-semibold leading-[1.05] tracking-tight">Mami</h1>
+      <p className="mt-3 font-display text-xl text-soft">Your day, laid out calmly.</p>
+      <p className="mt-6 text-soft">
+        Log in with a code Mami sends to your Telegram. No password needed.
       </p>
       <div className="mt-8">
         <ErrorNote error={error} />
@@ -54,7 +53,7 @@ export function Login({ onDone }: { onDone: () => void }) {
           </Button>
         ) : (
           <form onSubmit={verify} className="flex flex-col gap-3">
-            <label htmlFor="code" className="text-sm font-bold">
+            <label htmlFor="code" className="text-sm font-semibold">
               6-digit code from Telegram
             </label>
             <input
@@ -65,7 +64,7 @@ export function Login({ onDone }: { onDone: () => void }) {
               maxLength={6}
               value={code}
               onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))}
-              className="rounded-2xl bg-white px-4 py-3 text-center font-display text-3xl tracking-[0.4em] ring-1 ring-line"
+              className="rounded-2xl bg-card px-4 py-3 text-center font-display text-3xl tracking-[0.4em] ring-1 ring-line"
             />
             <Button kind="primary" type="submit" disabled={busy || code.length !== 6}>
               Log in

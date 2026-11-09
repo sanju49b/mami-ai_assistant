@@ -57,6 +57,9 @@ class HttpTelegramClient:
     def answer_callback(self, callback_query_id: str, text: str = "") -> None:
         self._call("answerCallbackQuery", {"callback_query_id": callback_query_id, "text": text})
 
+    def get_me(self) -> dict:
+        return self._call("getMe", {})
+
     def set_webhook(self, url: str, secret_token: str) -> None:
         self._call(
             "setWebhook",

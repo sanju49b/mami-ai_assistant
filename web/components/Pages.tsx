@@ -31,13 +31,13 @@ export function Week() {
       <ErrorNote error={error} />
       <Section title="Targets">
         {!data || data.targets.length === 0 ? (
-          <Empty>No weekly targets yet. Tell the bot one, like “6 hours of DSA a week”, and approve it.</Empty>
+          <Empty>No weekly targets yet. Tell Mami one, like “6 hours of DSA a week”, and approve it.</Empty>
         ) : (
           <ul className="flex flex-col gap-4">
             {data.targets.map((g) => (
-              <li key={g.id} className="rounded-2xl bg-white p-4 ring-1 ring-line">
+              <li key={g.id} className="rounded-2xl bg-card p-4 ring-1 ring-line">
                 <div className="mb-2 flex justify-between gap-3">
-                  <span className="font-bold">{g.title}</span>
+                  <span className="font-semibold">{g.title}</span>
                   <span className="font-display text-sm tabular-nums text-soft">{targetLine(g)}</span>
                 </div>
                 <Bar value={g.this_week?.actual || 0} max={g.this_week?.target || 1} color={catColor(g.category)} />
@@ -58,7 +58,7 @@ export function Week() {
                   <span className="text-soft">
                     {new Date(day + "T12:00:00Z").toLocaleDateString("en-GB", { weekday: "short", day: "numeric", timeZone: "UTC" })}
                   </span>
-                  <span className="flex h-3 overflow-hidden rounded-full bg-[#e3e9ee]" style={{ width: `${(100 * total) / maxDay}%` }}>
+                  <span className="flex h-3 overflow-hidden rounded-full bg-[#ece5dc]" style={{ width: `${(100 * total) / maxDay}%` }}>
                     {Object.entries(cats).map(([cat, m]) => (
                       <span key={cat} title={`${cat}: ${minutesLabel(m)}`} style={{ width: `${(100 * m) / total}%`, background: catColor(cat) }} />
                     ))}
@@ -75,7 +75,7 @@ export function Week() {
           {Object.keys(data.spend_by_category).length === 0 ? (
             <Empty>No spending logged this week.</Empty>
           ) : (
-            <ul className="divide-y divide-line rounded-2xl bg-white ring-1 ring-line">
+            <ul className="divide-y divide-line rounded-2xl bg-card ring-1 ring-line">
               {Object.entries(data.spend_by_category).map(([c, v]) => (
                 <li key={c} className="flex justify-between px-4 py-3 text-sm capitalize">
                   <span>{c}</span>
@@ -108,16 +108,16 @@ export function Tasks() {
       <ErrorNote error={error} />
       <Section title="To do">
         {!data || data.tasks.length === 0 ? (
-          <Empty>Nothing open. Tell the bot what you need to do.</Empty>
+          <Empty>Nothing open. Tell Mami what you need to do.</Empty>
         ) : (
-          <ul className="divide-y divide-line rounded-2xl bg-white ring-1 ring-line">
+          <ul className="divide-y divide-line rounded-2xl bg-card ring-1 ring-line">
             {data.tasks.map((t) => (
               <li key={t.id}>
                 <label className="flex min-h-12 items-center gap-3 px-4 py-2">
                   <input type="checkbox" checked={t.status === "done"} onChange={() => toggle(t)} className="h-5 w-5 accent-[var(--color-ink)]" />
                   <span className="flex-1">
                     {t.title}
-                    {t.important && <span className="ml-2 text-xs font-bold text-[#b3261e]">important</span>}
+                    {t.important && <span className="ml-2 text-xs font-semibold text-[#b3261e]">important</span>}
                   </span>
                   {t.due_date && (
                     <span className="text-xs text-soft">
@@ -137,8 +137,8 @@ export function Tasks() {
         ) : (
           <ul className="flex flex-col gap-2">
             {data.inbox.map((i) => (
-              <li key={i.id} className="rounded-2xl bg-white px-4 py-3 text-sm ring-1 ring-line">
-                <span className="mr-2 text-xs font-bold text-soft">{i.kind === "idea" ? "Idea" : "Note"}</span>
+              <li key={i.id} className="rounded-2xl bg-card px-4 py-3 text-sm ring-1 ring-line">
+                <span className="mr-2 text-xs font-semibold text-soft">{i.kind === "idea" ? "Idea" : "Note"}</span>
                 {i.content}
               </li>
             ))}
@@ -166,7 +166,7 @@ export function Money() {
         </div>
         <label className="text-sm">
           <span className="sr-only">Period</span>
-          <select value={days} onChange={(e) => setDays(Number(e.target.value))} className="min-h-10 rounded-full bg-white px-3 ring-1 ring-line">
+          <select value={days} onChange={(e) => setDays(Number(e.target.value))} className="min-h-10 rounded-full bg-card px-3 ring-1 ring-line">
             <option value={7}>7 days</option>
             <option value={30}>30 days</option>
             <option value={90}>90 days</option>
@@ -176,7 +176,7 @@ export function Money() {
       <ErrorNote error={error} />
       <Section title="By category">
         {cats.length === 0 ? (
-          <Empty>No spending yet. Tell the bot “spent £8.50 on lunch”.</Empty>
+          <Empty>No spending yet. Tell Mami “spent £8.50 on lunch”.</Empty>
         ) : (
           <ul className="flex flex-col gap-3">
             {cats.map(([c, p]) => (
@@ -191,12 +191,12 @@ export function Money() {
       </Section>
       {data && data.expenses.length > 0 && (
         <Section title="All spending">
-          <ul className="divide-y divide-line rounded-2xl bg-white ring-1 ring-line">
+          <ul className="divide-y divide-line rounded-2xl bg-card ring-1 ring-line">
             {data.expenses.map((e) => (
               <li key={e.id} className="flex justify-between gap-3 px-4 py-3 text-sm">
                 <span>
                   <span className="text-soft">{new Date(e.date + "T12:00:00Z").toLocaleDateString("en-GB", { day: "numeric", month: "short", timeZone: "UTC" })}</span>{" "}
-                  <span className="font-bold capitalize">{e.category}</span>
+                  <span className="font-semibold capitalize">{e.category}</span>
                   {(e.merchant || e.note) && <span className="text-soft"> {e.merchant || e.note}</span>}
                   {e.worth_it != null && <span className="text-soft"> worth it {e.worth_it}/5</span>}
                 </span>
@@ -222,12 +222,12 @@ export function Goals() {
       <p className="mb-6 text-soft">Goals and targets only change when you approve it.</p>
       <ErrorNote error={error} />
       {tops.length === 0 ? (
-        <Empty>No goals yet. Tell the bot what you're working towards, e.g. “get hired at a big tech company”.</Empty>
+        <Empty>No goals yet. Tell Mami what you're working towards, e.g. “get hired at a big tech company”.</Empty>
       ) : (
         <ul className="flex flex-col gap-4">
           {tops.map((g) => (
-            <li key={g.id} className="rounded-2xl bg-white p-4 ring-1 ring-line">
-              <p className="text-xs font-bold text-soft">{kindLabel[g.kind]}</p>
+            <li key={g.id} className="rounded-2xl bg-card p-4 ring-1 ring-line">
+              <p className="text-xs font-semibold text-soft">{kindLabel[g.kind]}</p>
               <p className="font-display text-lg font-semibold">{g.title}</p>
               {g.this_week && (
                 <div className="mt-2">
@@ -239,7 +239,7 @@ export function Goals() {
                 <ul className="mt-3 flex flex-col gap-2 border-l-2 border-line pl-4">
                   {byParent(g.id).map((c) => (
                     <li key={c.id} className="text-sm">
-                      <span className="font-bold">{c.title}</span>
+                      <span className="font-semibold">{c.title}</span>
                       {c.deadline && <span className="text-soft"> by {c.deadline}</span>}
                       {c.this_week && <span className="text-soft">, {targetLine(c)}</span>}
                     </li>
@@ -292,17 +292,17 @@ export function Me({ settings, onLogout }: { settings: Settings; onLogout: () =>
   return (
     <div className="max-w-2xl">
       <h1 className="mb-6 font-display text-3xl font-semibold tracking-tight">Me</h1>
-      <Section title="What I remember">
+      <Section title="What Mami remembers">
         <ErrorNote error={mem.error} />
         {!mem.data || mem.data.memories.length === 0 ? (
           <Empty>Nothing yet. Say “remember I focus best before 9” and it shows up here.</Empty>
         ) : (
           <ul className="flex flex-col gap-2">
             {mem.data.memories.map((m) => (
-              <li key={m.id} className="rounded-2xl bg-white p-4 ring-1 ring-line">
+              <li key={m.id} className="rounded-2xl bg-card p-4 ring-1 ring-line">
                 <p className={m.status === "observed" ? "italic" : ""}>{m.content}</p>
                 <p className="mt-1 text-xs text-soft">
-                  {m.status === "confirmed" ? "Confirmed by you" : "My observation, not confirmed"}
+                  {m.status === "confirmed" ? "Confirmed by you" : "Mami noticed this. Not confirmed yet"}
                 </p>
                 <div className="mt-3 flex flex-wrap gap-2">
                   {m.status === "observed" && (
@@ -328,11 +328,11 @@ export function Me({ settings, onLogout }: { settings: Settings; onLogout: () =>
           </ul>
         )}
       </Section>
-      <Section title="How I coach you">
+      <Section title="How Mami coaches you">
         <ErrorNote error={error} />
-        <div className="flex flex-col gap-4 rounded-2xl bg-white p-4 ring-1 ring-line">
+        <div className="flex flex-col gap-4 rounded-2xl bg-card p-4 ring-1 ring-line">
           <fieldset>
-            <legend className="mb-2 text-sm font-bold">Coaching style</legend>
+            <legend className="mb-2 text-sm font-semibold">Coaching style</legend>
             <div className="flex flex-wrap gap-2">
               {[
                 ["gentle", "Gentle"],
@@ -347,13 +347,13 @@ export function Me({ settings, onLogout }: { settings: Settings; onLogout: () =>
             </div>
           </fieldset>
           <div className="flex flex-wrap items-center gap-2 text-sm">
-            <span className="font-bold">Quiet hours</span>
+            <span className="font-semibold">Quiet hours</span>
             <input aria-label="Quiet from" type="time" value={quietStart} onChange={(e) => setQuietStart(e.target.value)} className="rounded-lg px-2 py-1 ring-1 ring-line" />
             <span>to</span>
             <input aria-label="Quiet until" type="time" value={quietEnd} onChange={(e) => setQuietEnd(e.target.value)} className="rounded-lg px-2 py-1 ring-1 ring-line" />
           </div>
           <label className="flex flex-wrap items-center gap-2 text-sm">
-            <span className="font-bold">Monthly AI budget (£)</span>
+            <span className="font-semibold">Monthly AI budget (£)</span>
             <input inputMode="decimal" placeholder="10" value={budget} onChange={(e) => setBudget(e.target.value)} className="w-24 rounded-lg px-2 py-1 ring-1 ring-line" />
           </label>
           <div className="flex items-center gap-3">
@@ -364,7 +364,7 @@ export function Me({ settings, onLogout }: { settings: Settings; onLogout: () =>
       </Section>
       <Section title="Your data">
         <div className="flex flex-wrap gap-2">
-          <a href="/api/export" download="day-manager-export.json" className="inline-flex min-h-10 items-center rounded-full bg-white px-4 text-sm font-bold ring-1 ring-line">
+          <a href="/api/export" download="day-manager-export.json" className="inline-flex min-h-10 items-center rounded-full bg-card px-4 text-sm font-semibold ring-1 ring-line">
             Download all my data
           </a>
           <Button kind="danger" onClick={onLogout}>Log out</Button>

@@ -133,7 +133,7 @@ def verify_code(body: VerifyIn, response: Response, session: Session = Depends(g
                            expires_at=utc_now() + timedelta(days=SESSION_DAYS)))
     response.set_cookie(
         COOKIE, token, max_age=SESSION_DAYS * 86400, httponly=True, samesite="lax",
-        secure=get_settings().public_base_url.startswith("https"), path="/",
+        secure=get_settings().base_url.startswith("https"), path="/",
     )
     return {"status": "ok"}
 
@@ -154,9 +154,12 @@ def logout(response: Response, dm_session: str | None = Cookie(default=None),
 
 @router.get("/me")
 def me(user_id: uuid.UUID = Depends(current_user), session: Session = Depends(get_session)):
+    from app.models import User
+
     s = get_settings_row(session, user_id)
-    return {"user_id": str(user_id), "today": today_for(s, utc_now()).isoformat(),
-            "settings": settings_view(s)}
+    user = session.get(User, user_id)
+    return {"user_id": str(user_id), "name": user.display_name if user else "",
+            "today": today_for(s, utc_now()).isoformat(), "settings": settings_view(s)}
 
 
 @router.get("/day")

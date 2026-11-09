@@ -94,7 +94,7 @@ def whoop_link(session: Session, job: Job) -> None:
                "and APP_ENCRYPTION_KEY).")
     else:
         url = whoop.start_connect(session, job.user_id)
-        msg = f"Tap to connect WHOOP (link works once, for 15 minutes):\n{url}"
+        msg = f"Tap to connect WHOOP to Mami (link works once, for 15 minutes):\n{url}"
     send_text(session, user_id=job.user_id, chat_id=chat_id, text=msg, kind="system",
               dedupe_key=f"job:{job.dedupe_key}")
 

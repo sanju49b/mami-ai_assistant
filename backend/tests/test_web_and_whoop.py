@@ -170,3 +170,40 @@ def test_whoop_connect_sync_and_token_rotation(client, telegram, uid):
         assert any("WHOOP connected" in t for _, t in telegram.sent)
     finally:
         whoop.transport = None
+
+
+# --- free hosting helpers ---------------------------------------------------------
+
+def test_cron_tick_requires_the_key_and_runs_jobs(client, monkeypatch):
+    from app.config import get_settings
+
+    monkeypatch.setattr(get_settings(), "cron_key", "tick-secret")
+    assert client.get("/cron/tick").status_code == 404
+    assert client.get("/cron/tick", params={"key": "wrong"}).status_code == 404
+    assert client.get("/cron/tick", params={"key": "tick-secret"}).json() == {"status": "ok"}
+
+
+def test_setup_page_creates_user_sets_webhook_and_links_once(client, monkeypatch):
+    from app.models import User
+    from app.telegram import client as tg
+
+    calls = []
+
+    class FakeBot:
+        def __init__(self, token):
+            pass
+
+        def set_webhook(self, url, secret):
+            calls.append((url, secret))
+
+        def get_me(self):
+            return {"username": "sri_mami_bot"}
+
+    monkeypatch.setattr("app.admin.HttpTelegramClient", FakeBot)
+    assert client.get("/setup", params={"key": "nope"}).status_code == 404
+    page = client.get("/setup", params={"key": "test-secret"}).text
+    assert "https://t.me/sri_mami_bot?start=" in page
+    assert calls[0][0] == "https://dm.example.com/telegram/webhook"
+    client.get("/setup", params={"key": "test-secret"})  # opening again is safe
+    with session_scope() as s:
+        assert len(s.execute(select(User)).scalars().all()) == 1

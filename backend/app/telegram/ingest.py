@@ -24,7 +24,7 @@ class InvalidUpdate(ValueError):
 
 
 HELP_TEXT = (
-    "Just talk to me like a person:\n"
+    "I'm Mami. Just talk to me like a person:\n"
     "• \"45 min DSA, £12 lunch, skipped gym, buy groceries tomorrow\"\n"
     "• \"plan my day\" / \"what am I missing this week?\"\n"
     "• \"actually only 30 minutes\" / \"undo\"\n"
@@ -144,7 +144,8 @@ def handle_update(session: Session, update: dict[str, Any]) -> str:
                 user_id=user_id,
                 payload={
                     "chat_id": chat_id,
-                    "text": "Linked. I'm your day manager. Tell me what you did, spent or plan to do.",
+                    "text": ("Linked. I'm Mami, your day manager. Tell me what you did, spent or plan "
+                             "to do, in your own words. Send /help for examples."),
                 },
             )
             return finish("linked")

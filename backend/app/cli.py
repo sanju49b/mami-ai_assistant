@@ -12,7 +12,7 @@ from datetime import timedelta
 from sqlalchemy import select
 
 import app.handlers  # noqa: F401
-from app.config import get_settings
+from app.config import get_settings, webhook_token
 from app.db import session_scope
 from app.jobs import run_due_jobs
 from app.models import LinkCode, User, UserSettings
@@ -70,7 +70,7 @@ def main() -> None:
         if not settings.telegram_webhook_secret:
             raise SystemExit("Set TELEGRAM_WEBHOOK_SECRET first.")
         HttpTelegramClient(settings.telegram_bot_token).set_webhook(
-            args.url, settings.telegram_webhook_secret
+            args.url, webhook_token(settings.telegram_webhook_secret)
         )
         print("Webhook set.")
     elif args.cmd == "run-jobs":

@@ -61,16 +61,16 @@ export function Button({
   className?: string;
 }) {
   const styles = {
-    primary: "bg-ink text-white hover:bg-[#2c3b4b]",
-    quiet: "bg-white text-ink ring-1 ring-line hover:bg-[#f6f8fa]",
-    danger: "bg-white text-[#b3261e] ring-1 ring-line hover:bg-[#fff4f3]",
+    primary: "bg-ink text-white hover:bg-[#3d3631]",
+    quiet: "bg-card text-ink ring-1 ring-line hover:bg-[#f3eee7]",
+    danger: "bg-card text-[#b3261e] ring-1 ring-line hover:bg-[#fff4f3]",
   }[kind];
   return (
     <button
       type={type}
       onClick={onClick}
       disabled={disabled}
-      className={`min-h-10 rounded-full px-4 text-sm font-bold disabled:opacity-50 ${styles} ${className}`}
+      className={`min-h-10 rounded-full px-4 text-sm font-semibold disabled:opacity-50 ${styles} ${className}`}
     >
       {children}
     </button>
@@ -119,7 +119,7 @@ export function useLoad<T>(load: () => Promise<T>, deps: unknown[] = []) {
 export function Bar({ value, max, color }: { value: number; max: number; color: string }) {
   const pct = max > 0 ? Math.min(100, Math.round((100 * value) / max)) : 0;
   return (
-    <div className="h-2.5 w-full overflow-hidden rounded-full bg-[#e3e9ee]" aria-hidden>
+    <div className="h-2.5 w-full overflow-hidden rounded-full bg-[#ece5dc]" aria-hidden>
       <div className="h-full rounded-full" style={{ width: `${pct}%`, background: color }} />
     </div>
   );

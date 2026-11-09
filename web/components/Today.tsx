@@ -20,7 +20,44 @@ function prettyDate(iso: string) {
   });
 }
 
-export function Today({ today }: { today: string }) {
+function greeting(): string {
+  const h = Number(
+    new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/London", hour: "2-digit", hour12: false }).format(new Date()),
+  );
+  if (h < 5) return "Still up";
+  if (h < 12) return "Good morning";
+  if (h < 18) return "Good afternoon";
+  return "Good evening";
+}
+
+function DaySummary({ day }: { day: Day }) {
+  const planned = day.blocks.filter((b) => b.status !== "cancelled");
+  const done = planned.filter((b) => b.status === "completed").length;
+  const pct = planned.length ? done / planned.length : 0;
+  const rec = "recovery_score" in day.health ? day.health.recovery_score : null;
+  const items: [string, string][] = [
+    ["Planned blocks done", planned.length ? `${done} of ${planned.length}` : "No plan yet"],
+    ["Spent", day.spent_total],
+    ["Recovery", rec != null ? `${Math.round(rec)}%` : "–"],
+  ];
+  return (
+    <div className="mb-8 rounded-3xl bg-card p-5 ring-1 ring-line">
+      <div className="mb-4 h-1.5 overflow-hidden rounded-full bg-[#ece5dc]" aria-hidden>
+        <div className="h-full rounded-full bg-accent transition-[width] duration-700" style={{ width: `${pct * 100}%` }} />
+      </div>
+      <dl className="grid grid-cols-3 gap-3">
+        {items.map(([k, v]) => (
+          <div key={k}>
+            <dt className="text-xs text-soft">{k}</dt>
+            <dd className="mt-0.5 font-display text-xl font-semibold tabular-nums sm:text-2xl">{v}</dd>
+          </div>
+        ))}
+      </dl>
+    </div>
+  );
+}
+
+export function Today({ today, name }: { today: string; name: string }) {
   const [date, setDate] = useState(today);
   const { data, error, reload, setError } = useLoad(() => api.get<Day>(`/api/day?date=${date}`), [date]);
   const [selected, setSelected] = useState<string | null>(null);
@@ -37,31 +74,34 @@ export function Today({ today }: { today: string }) {
   }
 
   return (
-    <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_22rem] lg:gap-10">
+    <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_23rem] lg:gap-12">
       <div>
-        <header className="mb-6 flex items-end justify-between gap-4">
+        <header className="mb-5 flex items-end justify-between gap-4">
           <div>
-            <h1 className="font-display text-3xl font-semibold leading-none tracking-tight sm:text-4xl">
+            <p className="mb-1 text-soft">{date === today ? `${greeting()}, ${name}.` : "Looking at another day."}</p>
+            <h1 className="font-display text-[2.1rem] font-semibold leading-[1.05] tracking-tight sm:text-5xl">
               {prettyDate(date)}
             </h1>
             {data?.plan && data.plan.versions > 1 && (
               <p className="mt-2 text-sm text-soft">Plan revised {data.plan.versions - 1}× today</p>
             )}
           </div>
-          <div className="flex gap-1">
-            <button aria-label="Previous day" onClick={() => setDate(addDays(date, -1))} className="h-10 w-10 rounded-full bg-white ring-1 ring-line">
+          <div className="flex shrink-0 gap-1">
+            <button aria-label="Previous day" onClick={() => setDate(addDays(date, -1))} className="h-10 w-10 rounded-full bg-card ring-1 ring-line hover:bg-[#f3eee7]">
               ‹
             </button>
             {date !== today && (
-              <button onClick={() => setDate(today)} className="h-10 rounded-full bg-white px-3 text-sm font-bold ring-1 ring-line">
+              <button onClick={() => setDate(today)} className="h-10 rounded-full bg-card px-3 text-sm font-semibold ring-1 ring-line">
                 Today
               </button>
             )}
-            <button aria-label="Next day" onClick={() => setDate(addDays(date, 1))} className="h-10 w-10 rounded-full bg-white ring-1 ring-line">
+            <button aria-label="Next day" onClick={() => setDate(addDays(date, 1))} className="h-10 w-10 rounded-full bg-card ring-1 ring-line hover:bg-[#f3eee7]">
               ›
             </button>
           </div>
         </header>
+
+        {data && <DaySummary day={data} />}
 
         <ErrorNote error={error} />
 
@@ -69,8 +109,9 @@ export function Today({ today }: { today: string }) {
           <Section title={data.approvals.length === 1 ? "Waiting for your OK" : `${data.approvals.length} proposals waiting`}>
             <ul className="flex flex-col gap-3">
               {data.approvals.map((a) => (
-                <li key={a.id} className="rounded-2xl bg-white p-4 ring-1 ring-line">
-                  <p className="whitespace-pre-line text-sm leading-relaxed">{a.summary}</p>
+                <li key={a.id} className="rounded-2xl border-l-4 border-accent bg-card p-4 ring-1 ring-line">
+                  <p className="mb-1 text-xs text-soft">Mami suggests</p>
+                  <p className="whitespace-pre-line leading-relaxed">{a.summary}</p>
                   <div className="mt-3 flex gap-2">
                     <Button kind="primary" onClick={() => act(() => api.post(`/api/approvals/${a.id}`, { decision: "approve" }))}>
                       Approve
@@ -86,7 +127,7 @@ export function Today({ today }: { today: string }) {
         {data && (
           <Section title="Plan">
             {data.blocks.length === 0 ? (
-              <Empty>No plan for this day yet. Message the bot “plan my day” and approve what it suggests.</Empty>
+              <Empty>No plan for this day yet. Tell Mami “plan my day” on Telegram and approve what she suggests.</Empty>
             ) : (
               <Timeline
                 blocks={data.blocks}
@@ -105,14 +146,14 @@ export function Today({ today }: { today: string }) {
         {data && (
           <Section title="What happened">
             {data.activities.length === 0 ? (
-              <Empty>Nothing logged yet. Tell the bot what you did, in your own words.</Empty>
+              <Empty>Nothing logged yet. Tell Mami what you did, in your own words.</Empty>
             ) : (
               <ul className="flex flex-col gap-2">
                 {data.activities.map((a) => (
-                  <li key={a.id} className="flex items-center gap-3 rounded-2xl bg-white px-4 py-3 ring-1 ring-line">
+                  <li key={a.id} className="flex items-center gap-3 rounded-2xl bg-card px-4 py-3 ring-1 ring-line">
                     <span className="h-8 w-1.5 rounded-full" style={{ background: catColor(a.category) }} aria-hidden />
                     <span className="min-w-0 flex-1">
-                      <span className="block truncate font-bold">{a.title}</span>
+                      <span className="block truncate font-semibold">{a.title}</span>
                       <span className="block text-xs text-soft">
                         {STATUS_LABEL[a.status]}
                         {a.minutes != null && `, ${minutesLabel(a.minutes)}`}
@@ -131,11 +172,11 @@ export function Today({ today }: { today: string }) {
             {data.expenses.length === 0 ? (
               <Empty>No spending logged.</Empty>
             ) : (
-              <ul className="divide-y divide-line rounded-2xl bg-white ring-1 ring-line">
+              <ul className="divide-y divide-line rounded-2xl bg-card ring-1 ring-line">
                 {data.expenses.map((e) => (
                   <li key={e.id} className="flex justify-between gap-3 px-4 py-3 text-sm">
                     <span>
-                      <span className="font-bold capitalize">{e.category}</span>
+                      <span className="font-semibold capitalize">{e.category}</span>
                       {e.note && <span className="text-soft"> {e.note}</span>}
                       {e.status === "estimated" && <span className="text-soft"> (estimate)</span>}
                     </span>
@@ -148,7 +189,7 @@ export function Today({ today }: { today: string }) {
         )}
         {data?.review?.summary && (
           <Section title="Day summary">
-            <p className="rounded-2xl bg-white p-4 text-sm leading-relaxed ring-1 ring-line">{data.review.summary}</p>
+            <p className="rounded-2xl bg-card p-4 text-sm leading-relaxed ring-1 ring-line">{data.review.summary}</p>
           </Section>
         )}
       </aside>
@@ -174,7 +215,7 @@ function BlockPanel({
   ];
   return (
     <Section title={block.title}>
-      <div className="rounded-2xl bg-white p-4 ring-1 ring-line">
+      <div className="rounded-2xl bg-card p-4 ring-1 ring-line">
         <p className="text-sm text-soft">
           {block.start}–{block.end}, {STATUS_LABEL[block.status].toLowerCase()}
         </p>
@@ -218,6 +259,7 @@ function FocusPanel({ focus, act }: { focus: Focus | null; act: (fn: () => Promi
   const [tick, setTick] = useState(0);
   const [title, setTitle] = useState("");
   const [minutes, setMinutes] = useState(25);
+  const [open, setOpen] = useState(false);
   useEffect(() => {
     if (focus?.status !== "running") return;
     const t = setInterval(() => setTick((x) => x + 1), 1000);
@@ -225,6 +267,21 @@ function FocusPanel({ focus, act }: { focus: Focus | null; act: (fn: () => Promi
   }, [focus?.status]);
 
   if (!focus) {
+    if (!open) {
+      return (
+        <div className="mb-7">
+          <button onClick={() => setOpen(true)} className="flex w-full items-center gap-3 rounded-2xl bg-card px-4 py-3.5 text-left ring-1 ring-line hover:bg-[#f3eee7]">
+            <span className="flex h-9 w-9 items-center justify-center rounded-full bg-[#f5e4dc] text-accent" aria-hidden>
+              <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><circle cx="12" cy="13" r="7" /><path d="M12 9.5V13l2.5 1.5M10 3h4" /></svg>
+            </span>
+            <span>
+              <span className="block font-semibold">Start a focus session</span>
+              <span className="block text-sm text-soft">25, 50 or 90 minutes. Logged when you finish.</span>
+            </span>
+          </button>
+        </div>
+      );
+    }
     return (
       <Section title="Focus">
         <form
@@ -240,10 +297,10 @@ function FocusPanel({ focus, act }: { focus: Focus | null; act: (fn: () => Promi
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             placeholder="What are you focusing on?"
-            className="min-h-10 flex-1 rounded-full bg-white px-4 text-sm ring-1 ring-line"
+            className="min-h-10 flex-1 rounded-full bg-card px-4 text-sm ring-1 ring-line"
           />
           <label className="sr-only" htmlFor="focus-len">Length</label>
-          <select id="focus-len" value={minutes} onChange={(e) => setMinutes(Number(e.target.value))} className="min-h-10 rounded-full bg-white px-3 text-sm ring-1 ring-line">
+          <select id="focus-len" value={minutes} onChange={(e) => setMinutes(Number(e.target.value))} className="min-h-10 rounded-full bg-card px-3 text-sm ring-1 ring-line">
             {[25, 50, 90].map((m) => (
               <option key={m} value={m}>{m} min</option>
             ))}
@@ -263,7 +320,7 @@ function FocusPanel({ focus, act }: { focus: Focus | null; act: (fn: () => Promi
   const c = 2 * Math.PI * r;
   return (
     <Section title={`Focus: ${focus.title}`}>
-      <div className="flex items-center gap-5 rounded-2xl bg-white p-4 ring-1 ring-line">
+      <div className="flex items-center gap-5 rounded-2xl bg-card p-4 ring-1 ring-line">
         <svg viewBox="0 0 100 100" className="h-24 w-24 shrink-0" role="img" aria-label={`${mm}:${ss} left`}>
           <circle cx="50" cy="50" r={r} fill="none" stroke="#e3e9ee" strokeWidth="8" />
           <circle cx="50" cy="50" r={r} fill="none" stroke={catColor(focus.category)} strokeWidth="8" strokeLinecap="round"
@@ -294,7 +351,7 @@ function HealthPanel({ day }: { day: Day }) {
     return (
       <Section title="Body">
         <Empty>
-          {h.whoop === "not connected" ? "WHOOP isn't connected. Send /whoop to the bot to connect it." : h.whoop}
+          {h.whoop === "not connected" ? "WHOOP isn't connected. Send /whoop to Mami on Telegram to connect it." : h.whoop}
         </Empty>
       </Section>
     );
@@ -309,7 +366,7 @@ function HealthPanel({ day }: { day: Day }) {
   ];
   return (
     <Section title="Body" action={<span className="text-xs text-soft">From WHOOP</span>}>
-      <div className="flex items-center gap-4 rounded-2xl bg-white p-4 ring-1 ring-line">
+      <div className="flex items-center gap-4 rounded-2xl bg-card p-4 ring-1 ring-line">
         <div className="flex h-16 w-16 shrink-0 flex-col items-center justify-center rounded-full ring-4" style={{ ["--tw-ring-color" as string]: recColor }}>
           <span className="font-display text-xl font-semibold">{rec != null ? `${Math.round(rec)}%` : "–"}</span>
         </div>

@@ -9,7 +9,7 @@ from typing import Any
 from fastapi import APIRouter, Body, Depends, Header, HTTPException
 from sqlalchemy.orm import Session
 
-from app.config import get_settings
+from app.config import get_settings, webhook_token
 from app.db import get_session
 from app.telegram.ingest import InvalidUpdate, handle_update
 
@@ -24,7 +24,7 @@ def verify_secret(
         raise HTTPException(status_code=503, detail="webhook secret not configured")
     # Constant-time comparison, so the secret can't be guessed from response timing.
     if not x_telegram_bot_api_secret_token or not hmac.compare_digest(
-        x_telegram_bot_api_secret_token, secret
+        x_telegram_bot_api_secret_token, webhook_token(secret)
     ):
         raise HTTPException(status_code=401, detail="bad secret")
 

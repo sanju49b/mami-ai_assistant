@@ -1,9 +1,9 @@
-# Render blueprint. Secrets are set in the Render dashboard, never here.
+# Render blueprint (free plan). Secrets are set in the Render dashboard, never here.
 services:
   - type: web
-    name: day-manager-api
+    name: mami
     runtime: python
-    plan: starter            # always-on; the free plan sleeps and would stop reminders
+    plan: free               # $0. Sleeps when idle; cron-job.org pings /cron/tick to keep it awake
     region: frankfurt
     rootDir: backend
     buildCommand: pip install .
@@ -18,14 +18,14 @@ services:
       - key: TELEGRAM_BOT_TOKEN
         sync: false
       - key: TELEGRAM_WEBHOOK_SECRET
-        sync: false
+        generateValue: true   # Render creates a random secret; nothing for you to do
       - key: ANTHROPIC_API_KEY
         sync: false
-      - key: PUBLIC_BASE_URL
-        sync: false
+      - key: CRON_KEY
+        generateValue: true   # used in the cron-job.org URL shown on /setup
       - key: WHOOP_CLIENT_ID
         sync: false
       - key: WHOOP_CLIENT_SECRET
         sync: false
       - key: APP_ENCRYPTION_KEY
-        sync: false
+        generateValue: true   # keep it stable: changing it means reconnecting WHOOP
