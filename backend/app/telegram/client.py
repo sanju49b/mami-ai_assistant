@@ -60,6 +60,9 @@ class HttpTelegramClient:
     def get_me(self) -> dict:
         return self._call("getMe", {})
 
+    def get_webhook_info(self) -> dict:
+        return self._call("getWebhookInfo", {})
+
     def delete_webhook(self) -> None:
         """Polling (getUpdates) only works when no webhook is set."""
         self._call("deleteWebhook", {"drop_pending_updates": False})

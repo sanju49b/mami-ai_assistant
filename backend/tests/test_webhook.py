@@ -177,3 +177,14 @@ def test_reply_is_not_sent_twice_when_job_reruns(client, telegram, db):
     run_due_jobs()
     assert len(telegram.sent) == 1
     assert count(OutboundMessage) == 2  # link confirmation + one ack
+
+
+def test_webhook_reply_goes_out_without_waiting_for_the_worker(client, telegram, monkeypatch):
+    from app.config import get_settings
+
+    monkeypatch.setattr(get_settings(), "run_worker", True)
+    user_id = create_user("Sri")
+    code = make_link_code(user_id)
+    assert post(client, text_update(f"/start {code}")).json()["status"] == "linked"
+    # The welcome message was sent straight after the webhook returned.
+    assert telegram.sent and "Mami" in telegram.sent[-1][1]

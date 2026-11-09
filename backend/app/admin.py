@@ -21,7 +21,7 @@ from app.cli import create_user, make_link_code
 from app.config import get_settings, webhook_token
 from app.db import session_scope
 from app.models import TelegramLink, User
-from app.telegram.client import HttpTelegramClient
+from app.telegram.client import HttpTelegramClient, TelegramError
 
 log = logging.getLogger(__name__)
 router = APIRouter(tags=["admin"])
@@ -58,7 +58,8 @@ def cron_tick(key: str = "") -> dict[str, str]:
 def setup(request: Request, key: str = "", name: str = "Sri") -> HTMLResponse:
     s = get_settings()
     _check(key, s.telegram_webhook_secret)
-    base = s.public_base_url.rstrip("/") or str(request.base_url).rstrip("/")
+    base = s.public_base_url.rstrip("/") or s.render_external_url.rstrip("/") \
+        or str(request.base_url).rstrip("/")
     steps: list[str] = []
 
     with session_scope() as session:
@@ -71,9 +72,22 @@ def setup(request: Request, key: str = "", name: str = "Sri") -> HTMLResponse:
         steps.append("Your profile already exists.")
 
     bot = HttpTelegramClient(s.telegram_bot_token)
-    bot.set_webhook(f"{base}/telegram/webhook", webhook_token(s.telegram_webhook_secret))
-    steps.append("Telegram webhook is set: Mami can now receive your messages.")
-    username = bot.get_me().get("username", "")
+    try:
+        bot.set_webhook(f"{base}/telegram/webhook", webhook_token(s.telegram_webhook_secret))
+        steps.append("Telegram webhook is set: Mami can now receive your messages.")
+        username = bot.get_me().get("username", "")
+        info = bot.get_webhook_info()
+    except TelegramError as exc:
+        return HTMLResponse(
+            f"<h1>Telegram problem</h1><p>{html.escape(str(exc))}</p>"
+            "<p>Check TELEGRAM_BOT_TOKEN in Render's Environment tab.</p>", status_code=502)
+    steps.append(f"Bot: @{html.escape(username)}")
+    steps.append("Telegram linked: <b>yes</b>" if linked else
+                 "Telegram linked: <b>not yet</b> (use the button below, then tap Start)")
+    if info.get("last_error_message"):
+        steps.append(f"Telegram's last delivery error: {html.escape(info['last_error_message'])}")
+    if info.get("pending_update_count"):
+        steps.append(f"Messages waiting to be delivered: {info['pending_update_count']}")
 
     if linked:
         link_html = "<p>Your Telegram is already linked to Mami.</p>"

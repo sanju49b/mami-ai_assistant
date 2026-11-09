@@ -199,10 +199,14 @@ def test_setup_page_creates_user_sets_webhook_and_links_once(client, monkeypatch
         def get_me(self):
             return {"username": "sri_mami_bot"}
 
+        def get_webhook_info(self):
+            return {"pending_update_count": 2, "last_error_message": "Wrong response from the webhook: 401"}
+
     monkeypatch.setattr("app.admin.HttpTelegramClient", FakeBot)
     assert client.get("/setup", params={"key": "nope"}).status_code == 404
     page = client.get("/setup", params={"key": "test-secret"}).text
     assert "https://t.me/sri_mami_bot?start=" in page
+    assert "Telegram linked: <b>not yet</b>" in page and "401" in page
     assert calls[0][0] == "https://dm.example.com/telegram/webhook"
     client.get("/setup", params={"key": "test-secret"})  # opening again is safe
     with session_scope() as s:
