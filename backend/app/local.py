@@ -1,54 +1,50 @@
-"""Run Mami on your own laptop: `python -m app.local` (or ./start.sh).
+"""Run Mami on your laptop: `bash start.sh` (which runs `python -m app.local`).
 
-What it does, in one process:
-1. Checks your settings (backend/.env) and gives clear messages if something is missing.
-2. Creates/updates the database tables in Supabase (migrations).
-3. Makes sure your profile exists, and prints a one-tap link to connect your
-   Telegram the first time.
-4. Telegram "long polling": asks Telegram for new messages, so no public server
-   or webhook is needed. Messages sent while the laptop was off (up to 24h) are
-   picked up on start.
-5. Background worker: replies, reminders, morning brief, evening check-in,
-   day close, weekly review, WHOOP sync.
-6. Serves the web app at http://localhost:8000
+Everything happens on this computer. You chat with Mami in your browser at
+http://localhost:8000. Your data is stored in your database (DATABASE_URL).
+Claude (ANTHROPIC_API_KEY) is the only outside service.
+
+What it does:
+1. Checks your settings and the database, with plain-English messages.
+2. Creates/updates the tables (migrations).
+3. Makes sure your profile exists.
+4. Starts the background worker: morning brief, evening check-in, reminders,
+   day close (every day is saved, even ones the laptop was off for).
+5. Starts the web app and opens it in your browser.
 """
 import logging
+import os
 import sys
 import threading
-import time
+import webbrowser
+from pathlib import Path
 
 from alembic import command
 from alembic.config import Config
-from pathlib import Path
+from sqlalchemy import select, text
 
-import app.handlers  # noqa: F401 (registers job handlers)
-from app.cli import create_user, make_link_code
 from app.config import DEFAULT_DATABASE_URL, get_settings
-from app.db import session_scope
-from app.jobs import run_due_jobs
-from app.models import TelegramLink, User
-from app.scheduler import ensure_jobs
-from app.telegram.client import HttpTelegramClient, TelegramError
-from app.telegram.ingest import InvalidUpdate, handle_update
-from app.timeutil import utc_now
+from app.db import get_engine, session_scope
+from app.models import TelegramLink, User, UserSettings
 
-log = logging.getLogger("mami")
 BACKEND = Path(__file__).resolve().parent.parent
+URL = "http://localhost:8000"
+# The scheduler and reminders look up "where to send" through this link row.
+# In local mode it just means "show it in the web chat".
+LOCAL_CHAT_ID = 1
 
 
 def check_settings() -> None:
     s = get_settings()
     problems = []
     if s.database_url == DEFAULT_DATABASE_URL or not s.database_url:
-        problems.append("DATABASE_URL is empty (Supabase -> Connect -> Session pooler)")
+        problems.append("DATABASE_URL is empty (Supabase -> Connect -> Direct -> Session pooler)")
     elif "[YOUR-PASSWORD]" in s.database_url:
         problems.append("DATABASE_URL still has [YOUR-PASSWORD] in it: put your database password there")
-    if not s.telegram_bot_token:
-        problems.append("TELEGRAM_BOT_TOKEN is empty (get it from @BotFather)")
     if not s.anthropic_api_key:
         problems.append("ANTHROPIC_API_KEY is empty (platform.claude.com/settings/keys)")
     if problems:
-        print("\nMami can't start yet. Fix these in backend/.env:\n")
+        print("\nMami can't start yet. Fix these in backend/.env, save, and run start.sh again:\n")
         for p in problems:
             print(f"  - {p}")
         print()
@@ -56,10 +52,6 @@ def check_settings() -> None:
 
 
 def check_database() -> None:
-    from sqlalchemy import text
-
-    from app.db import get_engine
-
     try:
         with get_engine().connect() as conn:
             conn.execute(text("select 1"))
@@ -68,10 +60,11 @@ def check_database() -> None:
         print("\nMami can't reach your database.\n")
         print(f"  {msg}\n")
         if "password authentication failed" in msg:
-            print("  The password in DATABASE_URL is wrong (reset it in Supabase -> Database settings).")
-        elif "Network is unreachable" in msg or "could not translate host" in msg:
-            print("  Use the Session pooler string (Supabase -> Connect -> Session pooler),")
-            print("  not the direct db.xxxx.supabase.co one: that needs IPv6, which many home networks lack.")
+            print("  The password in DATABASE_URL is wrong. If it has symbols like @ / # ? :")
+            print("  write @ as %40, / as %2F, # as %23, ? as %3F, : as %3A (or use letters and numbers only).")
+        elif "resolve host" in msg or "unreachable" in msg or "translate host" in msg:
+            print("  Check the address part of DATABASE_URL. Copy it from Supabase -> Connect ->")
+            print("  Direct -> Session pooler (it contains pooler.supabase.com).")
         print()
         sys.exit(1)
 
@@ -82,102 +75,46 @@ def migrate() -> None:
     command.upgrade(cfg, "head")
 
 
-def ensure_owner_and_link(bot: HttpTelegramClient) -> None:
-    s = get_settings()
+def ensure_owner() -> None:
+    """One profile (you), plus the local 'link' the scheduler uses to reach you."""
     with session_scope() as session:
-        user_id = session.query(User.id).first()
-        linked = session.query(TelegramLink.id).first() is not None
-    if user_id is None:
-        user_id = create_user(s.owner_name)
-    else:
-        user_id = user_id[0]
-    if linked:
-        return
-    username = bot.get_me().get("username", "")
-    code = make_link_code(str(user_id))
-    print("\n" + "=" * 60)
-    print(" Connect your Telegram to Mami (one time only):")
-    print(f"   Open on your phone:  https://t.me/{username}?start={code}")
-    print("   then tap START. The link works once, for 15 minutes.")
-    print("=" * 60 + "\n")
+        owner = session.execute(select(User).order_by(User.created_at)).scalars().first()
+        if owner is None:
+            owner = User(display_name=get_settings().owner_name)
+            session.add(owner)
+            session.flush()
+            session.add(UserSettings(user_id=owner.id))
+        link = session.execute(
+            select(TelegramLink).where(TelegramLink.user_id == owner.id)
+        ).scalar_one_or_none()
+        if link is None:
+            session.add(TelegramLink(user_id=owner.id, telegram_user_id=0, chat_id=LOCAL_CHAT_ID))
 
 
-def process_updates(updates: list[dict]) -> int | None:
-    """Store each update (duplicates are ignored). Returns the next offset."""
-    next_offset = None
-    for update in updates:
-        try:
-            with session_scope() as session:
-                status = handle_update(session, update)
-            log.info("telegram update %s: %s", update.get("update_id"), status)
-        except InvalidUpdate:
-            log.warning("skipped malformed update")
-        next_offset = int(update.get("update_id", 0)) + 1
-    return next_offset
-
-
-def poll_telegram(bot: HttpTelegramClient, stop: threading.Event) -> None:
-    offset = None
-    delay = 2
-    while not stop.is_set():
-        try:
-            updates = bot.get_updates(offset, timeout=25)
-            if updates:
-                offset = process_updates(updates)
-                run_due_jobs()  # reply straight away rather than at the next worker tick
-            delay = 2
-        except Exception as exc:  # noqa: BLE001 - never stop polling
-            # Only Telegram's own message: other errors can contain the URL, which holds the token.
-            reason = str(exc) if isinstance(exc, TelegramError) else type(exc).__name__
-            log.warning("Can't reach Telegram right now (%s); retrying in %ss", reason, delay)
-            stop.wait(delay)
-            delay = min(delay * 2, 60)
-
-
-def worker(stop: threading.Event) -> None:
-    while not stop.is_set():
-        try:
-            with session_scope() as session:
-                ensure_jobs(session, utc_now())
-            run_due_jobs()
-        except Exception:  # noqa: BLE001
-            log.exception("worker problem")
-        stop.wait(20)
+def enable_local_mode() -> None:
+    os.environ["LOCAL_MODE"] = "true"
+    os.environ.setdefault("RUN_WORKER", "true")  # morning brief, reminders, day close
+    os.environ.setdefault("WORKER_POLL_SECONDS", "20")
+    get_settings.cache_clear()
 
 
 def main() -> None:
+    enable_local_mode()
     logging.basicConfig(level=logging.INFO, format="%(asctime)s  %(message)s", datefmt="%H:%M:%S")
     logging.getLogger("httpx").setLevel(logging.WARNING)
     check_settings()
     print("Connecting to your database…")
     check_database()
     migrate()
-    bot = HttpTelegramClient(get_settings().telegram_bot_token)
-    try:
-        bot.get_me()
-        bot.delete_webhook()  # polling only works when no webhook is set
-    except TelegramError as exc:
-        print(f"\nTelegram didn't accept the bot token ({exc}).")
-        print("Check TELEGRAM_BOT_TOKEN in backend/.env (copy it again from @BotFather).\n")
-        sys.exit(1)
-    except Exception as exc:  # noqa: BLE001
-        print(f"\nCan't reach Telegram ({type(exc).__name__}). Are you online?\n")
-        sys.exit(1)
-    ensure_owner_and_link(bot)
+    ensure_owner()
 
-    stop = threading.Event()
-    threading.Thread(target=poll_telegram, args=(bot, stop), daemon=True).start()
-    threading.Thread(target=worker, args=(stop,), daemon=True).start()
+    print(f"\nMami is running: {URL}")
+    print("Keep this window open while you use her. Press Ctrl+C to stop.\n")
+    threading.Timer(1.5, lambda: webbrowser.open(URL)).start()
 
-    print("Mami is running.  Telegram: message your bot.  Web app: http://localhost:8000")
-    print("Press Ctrl+C to stop.\n")
     import uvicorn
 
-    try:
-        uvicorn.run("app.main:app", host="127.0.0.1", port=8000, log_level="warning")
-    finally:
-        stop.set()
-        time.sleep(0.2)
+    uvicorn.run("app.main:app", host="127.0.0.1", port=8000, log_level="warning")
 
 
 if __name__ == "__main__":

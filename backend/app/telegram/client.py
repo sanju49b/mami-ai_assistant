@@ -109,12 +109,25 @@ class FakeTelegramClient:
         self.callbacks.append(callback_query_id)
 
 
+class LocalChatClient:
+    """Local mode: there is no Telegram. Messages Mami 'sends' are saved by
+    outbound.send_text and shown in the web chat, so sending is a no-op."""
+
+    def send_message(self, chat_id: int, text: str, buttons: Buttons | None = None) -> int | None:
+        return None
+
+    def answer_callback(self, callback_query_id: str, text: str = "") -> None:
+        return None
+
+
 _client: TelegramClient | None = None
 
 
 def get_telegram_client() -> TelegramClient:
     global _client
     if _client is None:
+        if get_settings().local_mode:
+            return LocalChatClient()
         _client = HttpTelegramClient(get_settings().telegram_bot_token)
     return _client
 

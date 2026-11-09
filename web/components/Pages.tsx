@@ -256,7 +256,7 @@ export function Goals() {
 
 type Settings = { quiet_hours: string; coaching_style: string };
 
-export function Me({ settings, onLogout }: { settings: Settings; onLogout: () => void }) {
+export function Me({ settings, onLogout }: { settings: Settings; onLogout?: () => void }) {
   const mem = useLoad(() => api.get<{ memories: Memory[] }>("/api/memories"));
   const [style, setStyle] = useState(settings.coaching_style);
   const [qStart, qEnd] = settings.quiet_hours.split("-");
@@ -367,7 +367,7 @@ export function Me({ settings, onLogout }: { settings: Settings; onLogout: () =>
           <a href="/api/export" download="day-manager-export.json" className="inline-flex min-h-10 items-center rounded-full bg-card px-4 text-sm font-semibold ring-1 ring-line">
             Download all my data
           </a>
-          <Button kind="danger" onClick={onLogout}>Log out</Button>
+          {onLogout && <Button kind="danger" onClick={onLogout}>Log out</Button>}
         </div>
       </Section>
     </div>

@@ -127,7 +127,7 @@ export function Today({ today, name }: { today: string; name: string }) {
         {data && (
           <Section title="Plan">
             {data.blocks.length === 0 ? (
-              <Empty>No plan for this day yet. Tell Mami “plan my day” on Telegram and approve what she suggests.</Empty>
+              <Empty>No plan for this day yet. Tell Mami “plan my day” in Chat and approve what she suggests.</Empty>
             ) : (
               <Timeline
                 blocks={data.blocks}
@@ -351,7 +351,7 @@ function HealthPanel({ day }: { day: Day }) {
     return (
       <Section title="Body">
         <Empty>
-          {h.whoop === "not connected" ? "WHOOP isn't connected. Send /whoop to Mami on Telegram to connect it." : h.whoop}
+          {h.whoop === "not connected" ? "WHOOP isn't connected. Type /whoop in Chat to connect it." : h.whoop}
         </Empty>
       </Section>
     );

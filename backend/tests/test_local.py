@@ -1,130 +1,125 @@
-"""Local mode: Telegram long polling instead of a webhook, plus startup checks."""
-import threading
+"""Local mode: chat in the web app on this laptop, no Telegram, no login."""
+from datetime import timedelta
 
-import httpx
 import pytest
+from fastapi.testclient import TestClient
 from sqlalchemy import func, select
 
 from app import local
-from app.cli import create_user, make_link_code
-from app.config import Settings
+from app.config import Settings, get_settings
 from app.db import session_scope
-from app.models import InboundUpdate, Job, Message, TelegramLink, User
-from tests.helpers import text_update
+from app.main import create_app
+from app.models import DailyReview, Message, PendingApproval, TelegramLink, User
+from app.telegram.client import set_telegram_client
+from app.timeutil import utc_now
+from tests.conftest_helpers import call, tools_then_text
 
 
-def count(model) -> int:
+def count(model, *where) -> int:
     with session_scope() as s:
-        return s.execute(select(func.count()).select_from(model)).scalar_one()
+        return s.execute(select(func.count()).select_from(model).where(*where)).scalar_one()
+
+
+@pytest.fixture
+def local_client(monkeypatch):
+    monkeypatch.setattr(get_settings(), "local_mode", True)
+    set_telegram_client(None)  # local mode: messages are only saved for the web chat
+    local.ensure_owner()
+    with TestClient(create_app(), base_url="http://testserver") as c:
+        yield c
+    set_telegram_client(None)
+
+
+# --- settings and startup ---------------------------------------------------
 
 
 def test_supabase_url_is_accepted_as_copied():
-    s = Settings(database_url="postgresql://postgres.abc:pw@aws-0-eu-west-2.pooler.supabase.com:5432/postgres")
+    s = Settings(database_url="postgresql://postgres.abc:pw@aws-0-eu-west-1.pooler.supabase.com:5432/postgres")
     assert s.database_url.startswith("postgresql+psycopg://postgres.abc:pw@")
     assert Settings(database_url="postgres://u:p@h/db").database_url == "postgresql+psycopg://u:p@h/db"
     already = "postgresql+psycopg://u:p@h/db"
     assert Settings(database_url=already).database_url == already
 
 
-def test_placeholder_password_is_caught(monkeypatch):
+def test_only_database_and_claude_key_are_needed(monkeypatch, capsys):
     monkeypatch.setattr(local, "get_settings", lambda: Settings(
-        database_url="postgresql://postgres:[YOUR-PASSWORD]@h:5432/postgres",
-        telegram_bot_token="t", anthropic_api_key="k"))
-    with pytest.raises(SystemExit):
-        local.check_settings()
+        database_url="postgresql://u:p@h/db", anthropic_api_key="k", telegram_bot_token=""))
+    local.check_settings()  # no Telegram token needed
 
-
-def test_missing_keys_are_caught(monkeypatch, capsys):
     monkeypatch.setattr(local, "get_settings", lambda: Settings(
-        database_url="postgresql://u:p@h/db", telegram_bot_token="", anthropic_api_key=""))
+        database_url="postgresql://postgres:[YOUR-PASSWORD]@h:5432/postgres", anthropic_api_key=""))
     with pytest.raises(SystemExit):
         local.check_settings()
     out = capsys.readouterr().out
-    assert "TELEGRAM_BOT_TOKEN" in out and "ANTHROPIC_API_KEY" in out
+    assert "[YOUR-PASSWORD]" in out and "ANTHROPIC_API_KEY" in out
 
 
-def test_polled_updates_are_stored_once_and_offset_advances():
-    user_id = create_user("Sri")
-    code = make_link_code(user_id)
-    batch = [text_update(f"/start {code}", update_id=500), text_update("gym done 6-7:30", update_id=501)]
-
-    assert local.process_updates(batch) == 502
-    assert count(TelegramLink) == 1
-    with session_scope() as s:
-        texts = s.execute(select(Message.content)).scalars().all()
-    assert "gym done 6-7:30" in texts
-    jobs_after_first = count(Job)
-
-    # Telegram can resend a batch (e.g. after a crash): nothing is duplicated.
-    assert local.process_updates(batch) == 502
-    assert count(InboundUpdate) == 2
-    assert count(Job) == jobs_after_first
-
-
-class FakeBot:
-    """getUpdates: fails once (network drop), then returns a batch, then stops."""
-
-    def __init__(self, batch, stop):
-        self.batch, self.stop, self.calls, self.offsets = batch, stop, 0, []
-
-    def get_updates(self, offset, timeout=25):
-        self.calls += 1
-        self.offsets.append(offset)
-        if self.calls == 1:
-            raise httpx.ConnectError("offline")
-        if self.calls == 2:
-            return self.batch
-        self.stop.set()
-        return []
-
-
-def test_polling_survives_network_errors_and_moves_offset(monkeypatch):
-    user_id = create_user("Sri")
-    code = make_link_code(user_id)
-    stop = threading.Event()
-    bot = FakeBot([text_update(f"/start {code}", update_id=900)], stop)
-    monkeypatch.setattr(local, "run_due_jobs", lambda: 0)
-    monkeypatch.setattr(stop, "wait", lambda seconds=None: stop.is_set())  # no real sleeping
-
-    local.poll_telegram(bot, stop)
-
-    assert bot.offsets == [None, None, 901]
-    assert count(TelegramLink) == 1
-
-
-def test_first_run_creates_owner_and_prints_link(capsys):
-    class Bot:
-        def get_me(self):
-            return {"username": "mami_sri_bot"}
-
-    local.ensure_owner_and_link(Bot())
-    out = capsys.readouterr().out
-    assert "https://t.me/mami_sri_bot?start=" in out
+def test_owner_is_created_once():
+    local.ensure_owner()
+    local.ensure_owner()
     assert count(User) == 1
+    assert count(TelegramLink) == 1  # the scheduler's "where to reach you" row
 
-    # Running again doesn't create a second profile.
-    local.ensure_owner_and_link(Bot())
-    assert count(User) == 1
+
+# --- chat -------------------------------------------------------------------
+
+
+def test_no_login_needed_locally(local_client):
+    me = local_client.get("/api/me").json()
+    assert me["name"] == "Sri" and me["local"] is True
+
+
+def test_chat_message_is_saved_and_answered(local_client, llm):
+    llm.responses.extend(tools_then_text(
+        call("log_expense", amount=4, category="food", estimated=False, merchant="coffee"),
+        text="Logged £4 coffee."))
+    data = local_client.post("/api/chat", json={"text": "£4 coffee"}).json()
+    roles = [(m["role"], m["text"]) for m in data["messages"]]
+    assert roles[0] == ("user", "£4 coffee")
+    assert roles[1][0] == "assistant" and roles[1][1].startswith("Logged £4 coffee.")
+    # Shown again after a reload, in order.
+    again = local_client.get("/api/chat").json()["messages"]
+    assert [m["role"] for m in again] == ["user", "assistant"]
+
+
+def test_message_is_kept_when_claude_fails(local_client, llm):
+    class Broken:
+        def create(self, **_):
+            raise RuntimeError("network down")
+
+    from app.llm import set_llm
+
+    set_llm(Broken())
+    r = local_client.post("/api/chat", json={"text": "gym done 6-7:30"})
+    assert r.status_code == 502 and "saved" in r.json()["detail"]
+    assert count(Message, Message.role == "user", Message.content == "gym done 6-7:30") == 1
+
+
+def test_proposals_show_as_cards_not_extra_messages(local_client, llm):
+    llm.responses.extend(tools_then_text(
+        call("propose_goal", title="Solve 50 DSA problems", kind="long_term",
+             metric="count", target_value=50),
+        text="Here's a goal for you to approve."))
+    data = local_client.post("/api/chat", json={"text": "set a goal: 50 DSA problems"}).json()
+    assert len(data["approvals"]) == 1
+    assert not any(m["text"].startswith("Proposal:") for m in data["messages"])
+    a = data["approvals"][0]
+    assert local_client.post(f"/api/approvals/{a['id']}", json={"decision": "approve"}).status_code == 200
+    assert local_client.get("/api/chat").json()["approvals"] == []
+    assert count(PendingApproval, PendingApproval.status == "executed") == 1
 
 
 def test_days_missed_while_laptop_was_off_are_still_closed():
-    from datetime import timedelta
-
     from app.jobs import run_due_jobs
-    from app.models import DailyReview
     from app.scheduler import ensure_jobs
-    from app.timeutil import utc_now
-    from tests.conftest_helpers import make_linked_user
 
-    make_linked_user()
+    local.ensure_owner()
     with session_scope() as s:
         link = s.execute(select(TelegramLink)).scalar_one()
         link.linked_at = utc_now() - timedelta(days=3, hours=1)
     with session_scope() as s:
         ensure_jobs(s, utc_now())
     run_due_jobs()
-    with session_scope() as s:
-        closed = s.execute(select(DailyReview.local_date)).scalars().all()
-    assert len(closed) >= 3  # the three missed days, each saved even with no messages
+    assert count(DailyReview) >= 3  # the three missed days, saved even with no messages
     with session_scope() as s:
         assert ensure_jobs(s, utc_now()) == 0  # and never twice

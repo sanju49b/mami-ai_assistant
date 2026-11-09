@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 from app import approvals, reviews
 from app.agent.runner import AgentResult, run_agent
 from app.common import get_settings_row
+from app.config import get_settings
 from app.integrations import whoop
 from app.jobs import handler
 from app.models import Job, Message, PendingApproval, Task
@@ -35,6 +36,8 @@ def deliver(session: Session, user_id: uuid.UUID, chat_id: int, result: AgentRes
             kind: str = "reply") -> None:
     send_text(session, user_id=user_id, chat_id=chat_id, text=result.reply, kind=kind,
               dedupe_key=key)
+    if get_settings().local_mode:
+        return  # the web chat shows proposals as cards with Approve/Reject buttons
     for a in result.approvals:
         send_text(session, user_id=user_id, chat_id=chat_id,
                   text=f"Proposal:\n{a.summary}\n\nApprove, reject, or reply with changes.",

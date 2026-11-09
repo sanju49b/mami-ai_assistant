@@ -18,6 +18,7 @@ from sqlalchemy import text
 import app.handlers  # noqa: F401  (registers job handlers)
 from app.admin import router as admin_router
 from app.api import router as api_router
+from app.chat import router as chat_router
 from app.config import get_settings
 from app.db import session_scope
 from app.integrations.router import router as whoop_router
@@ -66,6 +67,7 @@ def create_app() -> FastAPI:
     app.include_router(telegram_router)
     app.include_router(whoop_router)
     app.include_router(api_router)
+    app.include_router(chat_router)
     app.include_router(admin_router)
 
     @app.get("/health")

@@ -4,15 +4,18 @@ import { useCallback, useEffect, useState } from "react";
 import { api, ApiError } from "@/lib/api";
 import { Login } from "@/components/Login";
 import { Today } from "@/components/Today";
+import { Chat } from "@/components/Chat";
 import { Goals, Me, Money, Tasks, Week } from "@/components/Pages";
 
 type MeData = {
   today: string;
   name: string;
+  local?: boolean;
   settings: { quiet_hours: string; coaching_style: string };
 };
 
 const ICONS: Record<string, React.ReactNode> = {
+  chat: <path d="M5 18.5V6.5A1.5 1.5 0 0 1 6.5 5h11A1.5 1.5 0 0 1 19 6.5v8a1.5 1.5 0 0 1-1.5 1.5H9l-4 2.5z" />,
   today: <path d="M4 7h16M4 12h10M4 17h7" />,
   week: <path d="M5 19V11M10 19V6M15 19v-9M20 19V9" />,
   tasks: <path d="M4 7l2 2 3-3M4 16l2 2 3-3M12 8h8M12 17h8" />,
@@ -33,6 +36,7 @@ const ICONS: Record<string, React.ReactNode> = {
 };
 
 const TABS = [
+  ["chat", "Chat"],
   ["today", "Today"],
   ["week", "Week"],
   ["tasks", "Tasks"],
@@ -45,7 +49,7 @@ type Tab = (typeof TABS)[number][0];
 export default function Home() {
   const [me, setMe] = useState<MeData | null>(null);
   const [state, setState] = useState<"loading" | "login" | "ready" | "error">("loading");
-  const [tab, setTab] = useState<Tab>("today");
+  const [tab, setTab] = useState<Tab>("chat");
 
   const load = useCallback(async () => {
     try {
@@ -113,6 +117,7 @@ export default function Home() {
         </nav>
       </div>
       <main>
+        {tab === "chat" && <Chat name={me.name} />}
         {tab === "today" && <Today today={me.today} name={me.name} />}
         {tab === "week" && <Week />}
         {tab === "tasks" && <Tasks />}
@@ -121,7 +126,7 @@ export default function Home() {
         {tab === "me" && (
           <Me
             settings={me.settings}
-            onLogout={async () => {
+            onLogout={me.local ? undefined : async () => {
               await api.post("/api/auth/logout").catch(() => {});
               setState("login");
             }}

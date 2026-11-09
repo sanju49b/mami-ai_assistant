@@ -7,9 +7,10 @@ cd "$(dirname "$0")/backend"
 if [ ! -f .env ]; then
   cp .env.example .env
   echo
-  echo "Created backend/.env. Open it, fill in the 3 values at the top, save,"
-  echo "then run ./start.sh again."
+  echo "Created backend/.env and opened it. Fill in the 2 values at the top, save,"
+  echo "then run:  bash start.sh"
   echo
+  [ "$(uname)" = "Darwin" ] && open -e .env
   exit 0
 fi
 

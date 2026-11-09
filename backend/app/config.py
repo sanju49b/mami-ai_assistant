@@ -19,6 +19,10 @@ class Settings(BaseSettings):
 
     owner_name: str = "Sri"
 
+    # Laptop-only mode: you chat with Mami in the web app at localhost, no
+    # Telegram and no login (the server only listens on this computer).
+    local_mode: bool = False
+
     database_url: str = DEFAULT_DATABASE_URL
 
     @field_validator("database_url")

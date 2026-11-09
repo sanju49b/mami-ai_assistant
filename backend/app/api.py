@@ -68,6 +68,14 @@ def _hash(value: str) -> str:
 def current_user(
     dm_session: str | None = Cookie(default=None), session: Session = Depends(get_session)
 ) -> uuid.UUID:
+    if get_settings().local_mode:
+        # Only this laptop can reach the server (127.0.0.1), so no login.
+        from app.models import User
+
+        owner = session.execute(select(User.id).order_by(User.created_at)).scalars().first()
+        if owner is None:
+            raise HTTPException(503, "Mami is still starting up")
+        return owner
     if not dm_session:
         raise HTTPException(401, "Not logged in")
     row = session.get(WebSession, _hash(dm_session))
@@ -159,6 +167,7 @@ def me(user_id: uuid.UUID = Depends(current_user), session: Session = Depends(ge
     s = get_settings_row(session, user_id)
     user = session.get(User, user_id)
     return {"user_id": str(user_id), "name": user.display_name if user else "",
+            "local": get_settings().local_mode,
             "today": today_for(s, utc_now()).isoformat(), "settings": settings_view(s)}
 
 
